@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Limiting Reagent Analysis</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --navy:#1f3a5f; --navy2:#2c5282; --bg:#f4f6f9; --card:#fff; --line:#d8dee8;
+    --ok:#1f7a4d; --okbg:#e6f4ec; --bad:#b42318; --badbg:#fdecea; --warn:#8a6100; --warnbg:#fff6dd;
+    --info:#1e4f8a; --infobg:#e8f0fb; --muted:#5b6575;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:#1c2430;font-size:16px;line-height:1.45}
+  header{background:var(--navy);color:#fff;padding:14px 28px;display:flex;align-items:center;gap:28px}
+  header h1{font-size:21px;margin:0;font-weight:600;letter-spacing:.2px}
+  nav{display:flex;gap:4px}
+  nav button{background:transparent;border:0;color:#cfdcec;font-size:15px;padding:8px 14px;border-radius:6px;cursor:pointer}
+  nav button.active{background:#fff;color:var(--navy);font-weight:600}
+  nav button:hover:not(.active){background:rgba(255,255,255,.12);color:#fff}
+  main{max-width:1180px;margin:0 auto;padding:22px 28px 60px}
+  .tab{display:none}.tab.active{display:block}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 22px;margin-bottom:16px}
+  h2{font-size:19px;margin:0 0 10px;color:var(--navy)}
+  h3{font-size:16px;margin:16px 0 6px;color:var(--navy)}
+  .controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  select,input[type=text],input:not([type]){font-size:15px;padding:6px 8px;border:1px solid #b8c2d0;border-radius:6px;background:#fff}
+  button.btn{font-size:15px;padding:7px 16px;border-radius:6px;border:1px solid var(--navy2);background:var(--navy2);color:#fff;cursor:pointer}
+  button.btn.secondary{background:#fff;color:var(--navy2)}
+  button.btn:disabled{opacity:.45;cursor:default}
+  .layout{display:grid;grid-template-columns:1fr 260px;gap:18px;align-items:start}
+  .side .card{position:sticky;top:12px}
+  .eq{font-size:22px;padding:10px 0;display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+  .eq .arrow{margin:0 10px}
+  .eq input.coef{width:46px;text-align:center;font-size:19px;padding:4px}
+  .eq .sp{margin-right:2px}
+  .statement{font-size:16.5px}
+  .given{display:flex;gap:26px;flex-wrap:wrap;margin-top:8px;font-size:15px;color:var(--muted)}
+  .given b{color:#1c2430}
+  .banner{background:var(--infobg);border:1px solid #c4d6ef;border-radius:8px;padding:8px 14px;margin-bottom:16px;font-size:18px;display:none}
+  .step{position:relative}
+  .step-head{font-weight:600;font-size:16.5px;color:var(--navy);margin-bottom:10px;display:flex;align-items:center;gap:10px}
+  .step-head .num{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--navy2);color:#fff;font-size:13px}
+  .step.locked{opacity:.45;pointer-events:none}
+  .step.locked .step-body,.step.locked .step-actions{display:none}
+  .step.locked::after{content:"Complete the previous step to unlock.";color:var(--muted);font-size:14px}
+  .step.done .step-head .num{background:var(--ok)}
+  .step.done .step-head .num.rev{background:#8a6100}
+  .step-actions{margin-top:12px;display:flex;gap:10px}
+  .hidden{display:none!important}
+  .fb{margin-top:10px}
+  .fb > div{padding:9px 13px;border-radius:7px;font-size:15px}
+  .fb .ok{background:var(--okbg);color:var(--ok);border:1px solid #b9e0c9}
+  .fb .bad{background:var(--badbg);color:var(--bad);border:1px solid #f3c1bb}
+  .fb .warn{background:var(--warnbg);color:var(--warn);border:1px solid #f0dc9e}
+  .fb .info{background:var(--infobg);color:var(--info);border:1px solid #c4d6ef}
+  .fb .hint{margin-top:6px;color:#3d4a5c;font-size:14.5px}
+  table.grid{border-collapse:collapse;font-size:15px}
+  table.grid th,table.grid td{border:1px solid var(--line);padding:6px 10px;text-align:center}
+  table.grid th{background:#eef2f7;font-weight:600;color:#334}
+  table.grid input{width:110px;text-align:right}
+  table.inv td.badc{background:var(--badbg);color:var(--bad);font-weight:600}
+  input.okf{border-color:var(--ok)!important;background:var(--okbg)!important}
+  input.badf{border-color:var(--bad)!important;background:var(--badbg)!important}
+  .row{display:flex;align-items:center;gap:10px;margin:7px 0;flex-wrap:wrap}
+  .row label{min-width:300px}
+  .row input{width:130px;text-align:right}
+  .unit{color:var(--muted)}
+  .am-table{width:100%;border-collapse:collapse;font-size:14px}
+  .am-table td{padding:3px 6px;border-bottom:1px solid #eef1f5}
+  .am-table td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+  details summary{cursor:pointer;color:var(--navy2);font-size:14px;margin-top:10px}
+  .muted{color:var(--muted);font-size:14px}
+  .review p,.review li{max-width:820px}
+  .worked{background:#fafbfd;border:1px solid var(--line);border-radius:8px;padding:12px 18px}
+  .worked .ln{margin:4px 0}
+  .lvl-pill{display:inline-block;background:#eef2f7;color:var(--navy);border-radius:12px;padding:2px 10px;font-size:13px;font-weight:600;margin-left:8px}
+  .summary td,.summary th{padding:6px 12px}
+  .custom-list td{text-align:left}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  code{background:#eef2f7;padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Limiting Reagent Analysis</h1>
+  <nav>
+    <button data-tab="review">Review</button>
+    <button data-tab="coach" class="active">Coaching</button>
+    <button data-tab="test">Testing</button>
+    <button data-tab="instr">Instructor</button>
+  </nav>
+</header>
+
+<main>
+<!-- ===================== REVIEW ===================== -->
+<section id="tab-review" class="tab review">
+  <div class="card">
+    <h2>What is a limiting reagent?</h2>
+    <p>When two reactants are mixed, they are rarely present in exactly the ratio the balanced equation calls for. The reaction stops when one reactant is used up. That reactant is the <b>limiting reagent</b> (limiting reactant): it limits how much product can form. The other reactant is the <b>excess reagent</b>; some of it is left over.</p>
+    <p>An analogy: a sandwich needs 2 slices of bread and 1 slice of cheese. With 10 slices of bread and 4 slices of cheese the bread alone would make 5 sandwiches, but the cheese allows only 4. Cheese is limiting, and 2 slices of bread are left over. What matters is how many you have <i>relative to how many each sandwich needs</i>. In chemistry, "how many" means <b>moles</b> and "how many each needs" is the <b>coefficient</b>.</p>
+  </div>
+  <div class="card">
+    <h2>The procedure</h2>
+    <ol>
+      <li><b>Balance the equation.</b> The coefficients give the mole ratios.</li>
+      <li><b>Find molar masses</b> of the reactants and the product (sum of atomic masses).</li>
+      <li><b>Convert grams to moles</b> for each reactant: moles = mass ÷ molar mass.</li>
+      <li><b>Use the mole ratio</b> (coef product ÷ coef reactant) to find how many moles of product each reactant could make. The reactant that makes the <b>least</b> product is the limiting reagent.</li>
+      <li><b>Excess remaining:</b> mol excess consumed = mol LR × (coef excess ÷ coef LR); convert to grams; subtract from the grams given.</li>
+      <li><b>Theoretical yield:</b> mol product = mol LR × (coef product ÷ coef LR); grams = mol × molar mass.</li>
+      <li><b>Percent yield</b> = (actual yield ÷ theoretical yield) × 100.</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h2>Common mistakes</h2>
+    <ul>
+      <li>Choosing the reactant with the <b>smaller mass</b> as limiting. Mass doesn't decide; the moles of product each reactant can make does.</li>
+      <li>Comparing moles but <b>forgetting the coefficients</b>.</li>
+      <li>Calculating the theoretical yield from the <b>excess</b> reagent.</li>
+      <li>Using the mole ratio <b>upside down</b>; write the units out so the unwanted ones cancel.</li>
+      <li>Multiplying a molar mass by the coefficient. Molar mass is always for one formula unit.</li>
+      <li>Computing percent yield as theoretical ÷ actual (gives more than 100%).</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h2>Worked example</h2>
+    <div id="worked" class="worked"></div>
+  </div>
+</section>
+
+<!-- ===================== COACHING ===================== -->
+<section id="tab-coach" class="tab active">
+  <div class="card controls">
+    <label>Level <select id="coach-level"></select></label>
+    <button class="btn" id="coach-new">Pick one for me</button>
+    <span class="muted">Work each step; the next step unlocks when this one is correct.</span>
+  </div>
+  <div class="layout">
+    <div>
+      <div class="card" id="coach-statement"></div>
+      <div class="banner" id="coach-banner"></div>
+      <div id="coach-steps"></div>
+    </div>
+    <div class="side"><div class="card" id="coach-side"></div></div>
+  </div>
+</section>
+
+<!-- ===================== TESTING ===================== -->
+<section id="tab-test" class="tab">
+  <div class="card controls">
+    <label>Level <select id="test-level"></select></label>
+    <button class="btn" id="test-new">New problem</button>
+    <span class="muted">Molar masses are given. Unlimited attempts; "Show answer" appears after 3 tries.</span>
+  </div>
+  <div class="card" id="test-statement"></div>
+  <div class="banner" id="test-banner"></div>
+  <div id="test-steps"></div>
+</section>
+
+<!-- ===================== INSTRUCTOR ===================== -->
+<section id="tab-instr" class="tab">
+  <div class="two-col">
+    <div class="card">
+      <h2>Add a problem</h2>
+      <p class="muted">Enter the reaction <b>unbalanced</b>; the tool balances it. Leave the masses blank to have new amounts generated every time the problem comes up.</p>
+      <div class="row"><label>Reactant 1 formula</label><input id="in-r1" placeholder="e.g. Al"></div>
+      <div class="row"><label>Reactant 2 formula</label><input id="in-r2" placeholder="e.g. Cl2"></div>
+      <div class="row"><label>Product formulas (comma-separated)</label><input id="in-p" style="width:220px" placeholder="e.g. AlCl3"></div>
+      <div class="row"><label>Level</label><select id="in-lvl"></select></div>
+      <div class="row"><button class="btn secondary" id="in-check">Balance &amp; check</button></div>
+      <div id="in-result"></div>
+      <div id="in-more" class="hidden">
+        <div class="row"><label>Product to report yield for</label><select id="in-t"></select></div>
+        <div class="row"><label>Mass of reactant 1 (g) — optional</label><input id="in-g1"></div>
+        <div class="row"><label>Mass of reactant 2 (g) — optional</label><input id="in-g2"></div>
+        <div class="row"><label>Actual yield (g) — optional</label><input id="in-act"></div>
+        <div class="row"><button class="btn" id="in-save">Save problem</button></div>
+        <div id="in-save-fb" class="fb"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Your problems</h2>
+      <div id="custom-list"></div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn secondary" id="exp">Export problems.json</button>
+        <label class="btn secondary" style="display:inline-block;cursor:pointer">Import…<input type="file" id="imp" accept=".json" class="hidden"></label>
+      </div>
+      <p class="muted">Problems you save here are stored in <i>this browser only</i>. To make them available to students, click <b>Export problems.json</b> and put that file in the GitHub repository next to <code>index.html</code>. The tool loads it automatically for everyone.</p>
+      <p class="muted" id="remote-status"></p>
+    </div>
+  </div>
+</section>
+</main>
+
+<script>
+/* =========================================================
+   CHEMISTRY ENGINE
+   ========================================================= */
+const AM = { H:1.008, He:4.003, Li:6.941, Be:9.012, B:10.811, C:12.011, N:14.007, O:15.999, F:18.998,
+  Na:22.990, Mg:24.305, Al:26.982, Si:28.086, P:30.974, S:32.065, Cl:35.453, Ar:39.948, K:39.098,
+  Ca:40.078, Ti:47.867, Cr:51.996, Mn:54.938, Fe:55.845, Co:58.933, Ni:58.693, Cu:63.546, Zn:65.380,
+  Br:79.904, Sr:87.620, Ag:107.868, Sn:118.710, I:126.904, Ba:137.327, Hg:200.590, Pb:207.200 };
+const ELNAME = {H:'Hydrogen',He:'Helium',Li:'Lithium',Be:'Beryllium',B:'Boron',C:'Carbon',N:'Nitrogen',O:'Oxygen',F:'Fluorine',Na:'Sodium',Mg:'Magnesium',Al:'Aluminum',Si:'Silicon',P:'Phosphorus',S:'Sulfur',Cl:'Chlorine',Ar:'Argon',K:'Potassium',Ca:'Calcium',Ti:'Titanium',Cr:'Chromium',Mn:'Manganese',Fe:'Iron',Co:'Cobalt',Ni:'Nickel',Cu:'Copper',Zn:'Zinc',Br:'Bromine',Sr:'Strontium',Ag:'Silver',Sn:'Tin',I:'Iodine',Ba:'Barium',Hg:'Mercury',Pb:'Lead'};
+
+// Parse a formula like Al2(SO4)3 into {Al:2,S:3,O:12}. ignoreParen=true drops multipliers after ")" (a common student error).
+function parseFormula(s, ignoreParen){
+  s = String(s).replace(/\s+/g,'');
+  let i = 0;
+  function readNum(){ let d=''; while(i<s.length && /[0-9]/.test(s[i])){ d+=s[i]; i++; } return d ? parseInt(d,10) : 1; }
+  function group(){
+    const c = {};
+    while(i < s.length){
+      const ch = s[i];
+      if(ch==='(' || ch==='['){
+        i++; const inner = group();
+        if(s[i]!==')' && s[i]!==']') throw new Error('Unmatched parenthesis');
+        i++; let n = readNum(); if(ignoreParen) n = 1;
+        for(const k in inner) c[k] = (c[k]||0) + inner[k]*n;
+      } else if(ch===')' || ch===']'){ return c; }
+      else if(/[A-Z]/.test(ch)){
+        let el = ch; i++;
+        while(i<s.length && /[a-z]/.test(s[i])){ el += s[i]; i++; }
+        if(!(el in AM)) throw new Error('Unknown element "'+el+'"');
+        const n = readNum(); c[el] = (c[el]||0) + n;
+      } else throw new Error('Unexpected character "'+ch+'" in '+s);
+    }
+    return c;
+  }
+  const r = group();
+  if(i < s.length) throw new Error('Unmatched parenthesis in '+s);
+  if(!Object.keys(r).length) throw new Error('Empty formula');
+  return r;
+}
+function molarMass(s, ignoreParen){
+  const c = parseFormula(s, ignoreParen); let m = 0;
+  for(const e in c) m += c[e]*AM[e];
+  return Math.round(m*1000)/1000;
+}
+function fH(s){ return String(s).replace(/(\d+)/g,'<sub>$1</sub>'); }
+function gcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){ [a,b]=[b,a%b]; } return a; }
+
+// Balance by integer Gauss-Jordan elimination; returns smallest positive integer coefficients, or null if not unique/possible.
+function balance(species, nR){
+  const comps = species.map(s=>parseFormula(s));
+  const els = []; comps.forEach(c=>{ for(const e in c) if(!els.includes(e)) els.push(e); });
+  const n = species.length, m = els.length;
+  const M = els.map(e => comps.map((c,j)=>(c[e]||0)*(j<nR?1:-1)));
+  const piv = []; let r = 0;
+  for(let c=0; c<n && r<m; c++){
+    let p=-1; for(let i=r;i<m;i++) if(M[i][c]!==0){ p=i; break; }
+    if(p<0) continue;
+    [M[r],M[p]] = [M[p],M[r]];
+    for(let i=0;i<m;i++){
+      if(i!==r && M[i][c]!==0){
+        const a=M[r][c], b=M[i][c];
+        M[i] = M[i].map((v,k)=> v*a - M[r][k]*b);
+        const g = M[i].reduce((x,y)=>gcd(x,y),0); if(g>1) M[i]=M[i].map(v=>v/g);
+      }
+    }
+    piv.push(c); r++;
+  }
+  if(r !== n-1) return null;
+  const free = [...Array(n).keys()].find(c=>!piv.includes(c));
+  let L = 1; for(let i=0;i<r;i++){ const a=Math.abs(M[i][piv[i]]); L = L*a/gcd(L,a); }
+  const x = Array(n).fill(0); x[free] = L;
+  for(let i=0;i<r;i++) x[piv[i]] = -M[i][free]*L/M[i][piv[i]];
+  const g = x.reduce((a,b)=>gcd(a,b),0); let xs = x.map(v=>v/g);
+  if(xs.every(v=>v<0)) xs = xs.map(v=>-v);
+  if(!xs.every(v=>v>0 && Number.isInteger(v))) return null;
+  return xs;
+}
+
+function sig3(x){ return Number(Number(x).toPrecision(3)); }
+function fmtG(x){ return Math.abs(x)>=1000 ? Math.round(x).toString() : Number(x).toPrecision(3); }
+function fmt4(x){ return Math.abs(x)>=10000 ? Math.round(x).toString() : Number(x).toPrecision(4); }
+
+/* =========================================================
+   PROBLEM DATABASE  (always 2 reactants; t = index of the product whose yield is reported)
+   ========================================================= */
+const LEVELS = {1:'Synthesis', 2:'Single displacement', 3:'Double displacement & neutralization', 4:'Combustion & simple redox', 5:'Larger combustion & redox'};
+const DB = [
+  // Level 1
+  {lvl:1, r:['H2','O2'], p:['H2O'], t:0},
+  {lvl:1, r:['N2','H2'], p:['NH3'], t:0},
+  {lvl:1, r:['Na','Cl2'], p:['NaCl'], t:0},
+  {lvl:1, r:['Mg','O2'], p:['MgO'], t:0},
+  {lvl:1, r:['Al','O2'], p:['Al2O3'], t:0},
+  {lvl:1, r:['Fe','O2'], p:['Fe2O3'], t:0},
+  {lvl:1, r:['Al','Cl2'], p:['AlCl3'], t:0},
+  {lvl:1, r:['P4','O2'], p:['P4O10'], t:0},
+  {lvl:1, r:['S8','O2'], p:['SO2'], t:0},
+  {lvl:1, r:['CaO','H2O'], p:['Ca(OH)2'], t:0},
+  {lvl:1, r:['Li','N2'], p:['Li3N'], t:0},
+  {lvl:1, r:['SO2','O2'], p:['SO3'], t:0},
+  {lvl:1, r:['K','Br2'], p:['KBr'], t:0},
+  {lvl:1, r:['Mg','N2'], p:['Mg3N2'], t:0},
+  // Level 2
+  {lvl:2, r:['Zn','HCl'], p:['ZnCl2','H2'], t:0},
+  {lvl:2, r:['Al','HCl'], p:['AlCl3','H2'], t:0},
+  {lvl:2, r:['Mg','HCl'], p:['MgCl2','H2'], t:0},
+  {lvl:2, r:['Na','H2O'], p:['NaOH','H2'], t:0},
+  {lvl:2, r:['K','H2O'], p:['KOH','H2'], t:0},
+  {lvl:2, r:['Fe','CuSO4'], p:['FeSO4','Cu'], t:1},
+  {lvl:2, r:['Al','CuCl2'], p:['AlCl3','Cu'], t:1},
+  {lvl:2, r:['Cu','AgNO3'], p:['Cu(NO3)2','Ag'], t:1},
+  {lvl:2, r:['Cl2','NaBr'], p:['NaCl','Br2'], t:1},
+  {lvl:2, r:['Al','Fe2O3'], p:['Al2O3','Fe'], t:1},
+  {lvl:2, r:['Al','H2SO4'], p:['Al2(SO4)3','H2'], t:0},
+  {lvl:2, r:['Zn','AgNO3'], p:['Zn(NO3)2','Ag'], t:1},
+  // Level 3
+  {lvl:3, r:['AgNO3','NaCl'], p:['AgCl','NaNO3'], t:0},
+  {lvl:3, r:['Pb(NO3)2','KI'], p:['PbI2','KNO3'], t:0},
+  {lvl:3, r:['BaCl2','Na2SO4'], p:['BaSO4','NaCl'], t:0},
+  {lvl:3, r:['NaOH','H2SO4'], p:['Na2SO4','H2O'], t:0},
+  {lvl:3, r:['Ca(OH)2','HCl'], p:['CaCl2','H2O'], t:0},
+  {lvl:3, r:['AlCl3','NaOH'], p:['Al(OH)3','NaCl'], t:0},
+  {lvl:3, r:['Na2CO3','HCl'], p:['NaCl','H2O','CO2'], t:2},
+  {lvl:3, r:['FeCl3','NaOH'], p:['Fe(OH)3','NaCl'], t:0},
+  {lvl:3, r:['Al2(SO4)3','Ca(OH)2'], p:['Al(OH)3','CaSO4'], t:0},
+  {lvl:3, r:['H3PO4','KOH'], p:['K3PO4','H2O'], t:0},
+  {lvl:3, r:['Ca3(PO4)2','H2SO4'], p:['CaSO4','H3PO4'], t:1},
+  {lvl:3, r:['AgNO3','K2CrO4'], p:['Ag2CrO4','KNO3'], t:0},
+  // Level 4
+  {lvl:4, r:['CH4','O2'], p:['CO2','H2O'], t:0},
+  {lvl:4, r:['C3H8','O2'], p:['CO2','H2O'], t:0},
+  {lvl:4, r:['C2H6','O2'], p:['CO2','H2O'], t:0},
+  {lvl:4, r:['C2H5OH','O2'], p:['CO2','H2O'], t:0},
+  {lvl:4, r:['CH3OH','O2'], p:['CO2','H2O'], t:0},
+  {lvl:4, r:['C4H10','O2'], p:['CO2','H2O'], t:0},
+  {lvl:4, r:['C2H2','O2'], p:['CO2','H2O'], t:0},
+  {lvl:4, r:['C5H12','O2'], p:['CO2','H2O'], t:0},
+  {lvl:4, r:['NH3','O2'], p:['NO','H2O'], t:0},
+  {lvl:4, r:['Fe2O3','CO'], p:['Fe','CO2'], t:0},
+  {lvl:4, r:['MnO2','HCl'], p:['MnCl2','Cl2','H2O'], t:1},
+  {lvl:4, r:['C6H12O6','O2'], p:['CO2','H2O'], t:0},
+  // Level 5
+  {lvl:5, r:['C8H18','O2'], p:['CO2','H2O'], t:0},
+  {lvl:5, r:['C6H6','O2'], p:['CO2','H2O'], t:0},
+  {lvl:5, r:['C7H16','O2'], p:['CO2','H2O'], t:0},
+  {lvl:5, r:['C12H22O11','O2'], p:['CO2','H2O'], t:0},
+  {lvl:5, r:['FeS2','O2'], p:['Fe2O3','SO2'], t:1},
+  {lvl:5, r:['Cu','HNO3'], p:['Cu(NO3)2','NO','H2O'], t:0},
+  {lvl:5, r:['KMnO4','HCl'], p:['KCl','MnCl2','Cl2','H2O'], t:2},
+  {lvl:5, r:['NH3','CuO'], p:['Cu','N2','H2O'], t:0},
+  {lvl:5, r:['Zn','HNO3'], p:['Zn(NO3)2','NH4NO3','H2O'], t:0},
+  {lvl:5, r:['C3H5(OH)3','O2'], p:['CO2','H2O'], t:0},
+];
+
+let CUSTOM = [];   // saved in this browser
+let REMOTE = [];   // loaded from problems.json next to index.html (GitHub Pages)
+function loadCustom(){ try{ CUSTOM = JSON.parse(localStorage.getItem('lra_custom_v1')||'[]'); }catch(e){ CUSTOM = []; } }
+function saveCustom(){ try{ localStorage.setItem('lra_custom_v1', JSON.stringify(CUSTOM)); }catch(e){} }
+function allProblems(){ return DB.concat(REMOTE, CUSTOM); }
+
+// Turn a database entry into a concrete problem with amounts and the full solution.
+function buildProblem(entry){
+  const species = entry.r.concat(entry.p), nR = entry.r.length;
+  const coef = balance(species, nR);
+  const mm = species.map(s=>molarMass(s));
+  const t = nR + (entry.t||0);
+  let grams;
+  if(entry.grams && entry.grams.length===2){ grams = entry.grams.map(Number); }
+  else {
+    const lr = Math.random()<0.5 ? 0 : 1, ex = 1-lr;
+    const target = 5 + Math.random()*45;            // grams of product, theoretical
+    const x = target/(coef[t]*mm[t]);               // reaction extent (mol)
+    const f = 1.25 + Math.random()*0.75;            // excess factor
+    const n = [0,0]; n[lr] = coef[lr]*x; n[ex] = coef[ex]*x*f;
+    grams = n.map((v,i)=>sig3(v*mm[i]));
+  }
+  const sol = solve(coef, mm, grams, t);
+  let actual;
+  if(entry.actual) actual = Number(entry.actual);
+  else actual = sig3(sol.prodG*(0.60 + Math.random()*0.35));
+  sol.pct = actual/sol.prodG*100;
+  return {entry, species, nR, coef, mm, t, grams, actual, sol};
+}
+function solve(coef, mm, grams, t){
+  const n = [grams[0]/mm[0], grams[1]/mm[1]];
+  const ratio = [n[0]/coef[0], n[1]/coef[1]];
+  const lr = ratio[0] <= ratio[1] ? 0 : 1, ex = 1-lr;
+  const exUsedMol = n[lr]*coef[ex]/coef[lr];
+  const exUsedG = exUsedMol*mm[ex];
+  const exLeftG = grams[ex] - exUsedG;
+  const prodMol = n[lr]*coef[t]/coef[lr];
+  const prodG = prodMol*mm[t];
+  return {n, ratio, lr, ex, exUsedMol, exUsedG, exLeftG, prodMol, prodG};
+}
+
+/* =========================================================
+   INPUT CHECKING
+   ========================================================= */
+function num(v){
+  v = String(v).trim().replace(/,/g,'').replace(/\s*(g\/mol|mol|g|%)\s*$/i,'');
+  v = v.replace(/\s*[x×*]\s*10\s*\^?\s*([-−]?\d+)/i, (m,e)=>'e'+e.replace('−','-'));
+  if(v==='') return NaN;
+  return Number(v);
+}
+const TOL = 0.02, TOL_MM = 0.005;
+function close(a,b,tol){ tol = tol===undefined?TOL:tol; if(!isFinite(a)) return false; return Math.abs(a-b) <= tol*Math.abs(b) + 1e-12; }
+function near(a,b){ return isFinite(a) && isFinite(b) && b!==0 && Math.abs(a-b) <= 0.015*Math.abs(b); }
+function mark(inp, ok){ inp.classList.remove('okf','badf'); inp.classList.add(ok?'okf':'badf'); }
+
+function inventory(P, c){
+  const comps = P.species.map(s=>parseFormula(s));
+  const els = []; comps.forEach(x=>{ for(const e in x) if(!els.includes(e)) els.push(e); });
+  return els.map(e=>{
+    let L=0,R=0; comps.forEach((x,j)=>{ const v=(x[e]||0)*c[j]; if(j<P.nR) L+=v; else R+=v; });
+    return {e,L,R};
+  });
+}
+function invTable(inv){
+  return '<table class="grid inv" style="margin-top:8px"><tr><th>Element</th><th>Reactant side</th><th>Product side</th></tr>' +
+    inv.map(r=>`<tr><td>${r.e}</td><td class="${r.L!==r.R?'badc':''}">${r.L}</td><td class="${r.L!==r.R?'badc':''}">${r.R}</td></tr>`).join('') + '</table>';
+}
+function tally(s){ const c=parseFormula(s); return Object.keys(c).map(e=>`${e} × ${c[e]}`).join(', '); }
+function sumExpr(s){ const c=parseFormula(s); return Object.keys(c).map(e=>`${c[e]}(${AM[e].toFixed(3)})`).join(' + ') + ' = ? g/mol'; }
+function eqHTML(P, coefs){
+  return P.species.map((s,i)=>{
+    const sep = i===P.nR ? ' <span class="arrow">→</span> ' : (i>0?' <span>+</span> ':'');
+    const c = coefs ? (coefs[i]===1?'':coefs[i]+' ') : '';
+    return sep + '<span class="sp">' + c + fH(s) + '</span>';
+  }).join('');
+}
+
+/* =========================================================
+   STEP FRAMEWORK
+   ========================================================= */
+function el(tag, cls, html){ const e=document.createElement(tag); if(cls) e.className=cls; if(html!==undefined) e.innerHTML=html; return e; }
+
+function setupSession(mode, P){
+  const ctx = {mode, P, steps:[]};
+  const S = document.getElementById(mode+'-steps'); S.innerHTML='';
+  const banner = document.getElementById(mode+'-banner'); banner.style.display='none';
+  const defs = mode==='coach' ? coachSteps(P, ctx) : testSteps(P, ctx);
+  defs.forEach((d,i)=>{ d.num = i+1; makeStep(ctx, d); S.appendChild(d.card); });
+  ctx.steps = defs;
+  defs[0].card.classList.remove('locked');
+  return ctx;
+}
+
+function makeStep(ctx, def){
+  const card = el('div','card step locked');
+  card.innerHTML = `<div class="step-head"><span class="num">${def.num}</span>${def.title}</div>
+    <div class="step-body">${def.html}</div>
+    <div class="step-actions"><button class="btn check">Check</button><button class="btn secondary reveal hidden">Show answer</button></div>
+    <div class="fb"></div>`;
+  def.card = card; def.attempts = 0; def.done = false; def.revealed = false;
+  const fb = card.querySelector('.fb');
+  const show = (msg, kind, extra)=>{ fb.innerHTML = `<div class="${kind}">${msg}${extra?`<div class="hint">${extra}</div>`:''}</div>`; };
+  const doCheck = ()=>{
+    if(def.done) return;
+    const res = def.check(card, def.attempts+1);
+    if(res.incomplete){ show(res.msg,'warn'); return; }
+    def.attempts++;
+    if(res.ok){ show(res.msg||'Correct!','ok'); complete(ctx, def); return; }
+    let msg = res.msg || 'Not correct — try again.', extra = '';
+    if(ctx.mode==='coach' && !res.specific){
+      if(def.attempts===1 && def.hint) extra = '<b>Hint:</b> '+def.hint;
+      else if(def.attempts>=2 && def.rule) extra = '<b>Rule:</b> '+def.rule;
+    }
+    show(msg,'bad',extra);
+    if(def.attempts>=3) card.querySelector('.reveal').classList.remove('hidden');
+  };
+  card.querySelector('.check').onclick = doCheck;
+  card.addEventListener('keydown', e=>{ if(e.key==='Enter' && e.target.tagName==='INPUT') doCheck(); });
+  card.querySelector('.reveal').onclick = ()=>{
+    if(def.done) return;
+    def.reveal(card); def.revealed = true;
+    card.querySelectorAll('input').forEach(i=>i.classList.remove('okf','badf'));
+    show('Answer shown' + (def.answerText ? ': '+def.answerText() : '.') + ' Study it, then continue.', 'info');
+    complete(ctx, def);
+  };
+}
+
+function complete(ctx, def){
+  def.done = true;
+  def.card.classList.add('done');
+  if(def.revealed) def.card.querySelector('.num').classList.add('rev');
+  def.card.querySelectorAll('input,select').forEach(i=>i.disabled=true);
+  def.card.querySelectorAll('.step-actions button').forEach(b=>b.classList.add('hidden'));
+  if(def.after) def.after();
+  const i = ctx.steps.indexOf(def);
+  if(i < ctx.steps.length-1){
+    const nx = ctx.steps[i+1].card; nx.classList.remove('locked');
+    const first = nx.querySelector('input'); if(first) first.focus({preventScroll:true});
+    setTimeout(()=>nx.scrollIntoView({behavior:'smooth', block:'nearest'}),60);
+  } else finish(ctx);
+}
+
+function finish(ctx){
+  const P = ctx.P, s = P.sol, F = i=>fH(P.species[i]);
+  const card = el('div','card');
+  let html = `<h2>Problem complete</h2>
+    <table class="grid summary"><tr><th>Quantity</th><th>Answer</th></tr>
+    <tr><td>Balanced equation</td><td>${eqHTML(P,P.coef)}</td></tr>
+    <tr><td>Limiting reagent</td><td>${F(s.lr)}</td></tr>
+    <tr><td>Excess ${F(s.ex)} remaining</td><td>${fmt4(s.exLeftG)} g</td></tr>
+    <tr><td>Theoretical yield of ${F(P.t)}</td><td>${fmt4(s.prodG)} g</td></tr>
+    <tr><td>Percent yield</td><td>${s.pct.toFixed(1)} %</td></tr></table>`;
+  if(ctx.mode==='test'){
+    const first = ctx.steps.filter(d=>d.attempts===1 && !d.revealed).length;
+    html += `<h3>Your results</h3><table class="grid summary"><tr><th>Step</th><th>Attempts</th><th>Result</th></tr>` +
+      ctx.steps.map(d=>`<tr><td style="text-align:left">${d.num}. ${d.title}</td><td>${d.attempts}</td><td>${d.revealed?'Answer shown':(d.attempts===1?'✓ first try':'✓')}</td></tr>`).join('') +
+      `</table><p><b>${first} of ${ctx.steps.length}</b> steps correct on the first try.</p>`;
+  }
+  html += `<button class="btn" id="${ctx.mode}-again">Next problem</button>`;
+  card.innerHTML = html;
+  document.getElementById(ctx.mode+'-steps').appendChild(card);
+  card.querySelector('#'+ctx.mode+'-again').onclick = ()=>newProblem(ctx.mode);
+  setTimeout(()=>card.scrollIntoView({behavior:'smooth', block:'nearest'}),80);
+}
+
+/* =========================================================
+   STEP DEFINITIONS
+   ========================================================= */
+function balanceStep(P, ctx){
+  const html = `<p>Enter a coefficient for each substance (leave blank for 1).</p><div class="eq">` +
+    P.species.map((s,i)=>`${i===P.nR?'<span class="arrow">→</span>':(i>0?'<span>+</span>':'')}<input class="coef" data-i="${i}" placeholder="1"><span class="sp">${fH(s)}</span>`).join('') + '</div>';
+  return {
+    title:'Balance the equation', html,
+    hint:'Balance elements that appear in only one substance on each side first. Leave free elements (O₂, H₂, Cl₂, metals) for last.',
+    rule:'An equation is balanced when every element has the same number of atoms on both sides. Change only coefficients, never subscripts.',
+    check(card){
+      const ins = [...card.querySelectorAll('.coef')], c = [];
+      for(const inp of ins){
+        const v = inp.value.trim();
+        if(v===''){ c.push(1); continue; }
+        if(!/^\d+$/.test(v) || +v===0) return {incomplete:true, msg:'Coefficients must be positive whole numbers (leave a box blank for 1). Fractions must be cleared.'};
+        c.push(+v);
+      }
+      const inv = inventory(P, c);
+      const ok = inv.every(r=>r.L===r.R);
+      ins.forEach(i=>mark(i, ok));
+      if(ok){
+        const g = c.reduce((a,b)=>gcd(a,b),0);
+        let msg = 'Balanced!';
+        if(g>1) msg += ` Your coefficients are all divisible by ${g}. In lowest terms they are ${c.map(x=>x/g).join(', ')}, and that's what we'll use from here on.`;
+        return {ok:true, msg};
+      }
+      if(ctx.mode==='coach') return {ok:false, msg:'Not balanced yet. Atom inventory for your coefficients (mismatches in red):'+invTable(inv)};
+      return {ok:false};
+    },
+    reveal(card){ card.querySelectorAll('.coef').forEach((inp,i)=>inp.value=P.coef[i]); },
+    answerText(){ return eqHTML(P, P.coef); },
+    after(){
+      const b = document.getElementById(ctx.mode+'-banner');
+      b.innerHTML = '<b>Balanced:</b>&nbsp; ' + eqHTML(P, P.coef); b.style.display='block';
+    }
+  };
+}
+
+function mmStep(P){
+  const idx = [0,1,P.t];
+  const html = `<p>Calculate the molar mass of each substance you'll need. Atomic masses are in the panel at right.</p>` +
+    idx.map(i=>`<div class="row"><label>Molar mass of ${fH(P.species[i])}</label><input data-i="${i}"><span class="unit">g/mol</span></div>`).join('');
+  return {
+    title:'Molar masses', html,
+    check(card, attempt){
+      const ins = [...card.querySelectorAll('input')];
+      if(ins.some(i=>isNaN(num(i.value)))) return {incomplete:true, msg:'Enter a number in every box.'};
+      const msgs = [];
+      ins.forEach(inp=>{
+        const i = +inp.dataset.i, s = P.species[i], v = num(inp.value), c = P.mm[i];
+        const ok = close(v, c, TOL_MM); mark(inp, ok);
+        if(ok) return;
+        let m = `<b>${fH(s)}:</b> `;
+        const noParen = molarMass(s, true);
+        if(noParen!==c && near(v, noParen)) m += 'The subscript outside the parentheses applies to every atom inside them.';
+        else if(P.coef[i]>1 && near(v, c*P.coef[i])) m += "Don't multiply by the coefficient. Molar mass is for one formula unit.";
+        else if(attempt<=1) m += 'Count the atoms: ' + tally(s) + '.';
+        else m += 'Add them up: ' + sumExpr(s);
+        msgs.push(m);
+      });
+      if(!msgs.length) return {ok:true, msg:'All molar masses correct.'};
+      return {ok:false, specific:true, msg: msgs.join('<br>')};
+    },
+    reveal(card){ card.querySelectorAll('input').forEach(inp=>inp.value=P.mm[+inp.dataset.i].toFixed(3)); },
+    answerText(){ return idx.map(i=>`${fH(P.species[i])} = ${P.mm[i].toFixed(3)} g/mol`).join('; '); }
+  };
+}
+
+let RADIO_UID = 0;
+function lrRadio(P){
+  const uid = ++RADIO_UID;
+  return `<div class="row" style="margin-top:12px"><b>Limiting reagent:</b>` +
+    [0,1].map(i=>`<label style="min-width:0;margin-left:14px"><input type="radio" name="lr-${uid}" value="${i}" style="width:auto"> ${fH(P.species[i])}</label>`).join('') + '</div>';
+}
+function lrChoice(card){ const r = card.querySelector('input[type=radio]:checked'); return r ? +r.value : null; }
+function lrMisconception(P, c){
+  const o = 1-c, s = P.sol;
+  if(P.grams[c] < P.grams[o]) return "You picked the reactant with the smaller <b>mass</b>. Mass doesn't decide which reactant runs out. Compare moles ÷ coefficient.";
+  if(s.n[c] < s.n[o]) return 'You picked the reactant with fewer <b>moles</b>, but the coefficients matter too. Compare moles ÷ coefficient.';
+  return 'The limiting reagent is the one with the <b>smallest</b> moles ÷ coefficient. It runs out first.';
+}
+
+function ratioVal(v){
+  v = String(v).trim().replace(/mol[^/]*/gi,'').replace(/\s+/g,'');
+  const m = v.match(/^([0-9.]+)\/([0-9.]+)$/);
+  if(m){ const d = Number(m[2]); return d ? Number(m[1])/d : NaN; }
+  return num(v);
+}
+function lrStepCoach(P){
+  const s = P.sol, Pd = fH(P.species[P.t]), ct = P.coef[P.t];
+  const pm = [0,1].map(i=>s.n[i]*ct/P.coef[i]);          // product moles from each reactant
+  const html = `<p>For each reactant: convert grams to moles, then use the mole ratio from the balanced equation to find how many moles of ${Pd} it could make. The reactant that makes <b>less</b> product is the limiting reagent.</p>
+    <table class="grid"><tr><th>Reactant</th><th>Mass given</th><th>Moles</th><th>Mole ratio<br><span class="muted" style="font-weight:400">mol ${Pd} / mol reactant</span></th><th>Moles of ${Pd}</th></tr>` +
+    [0,1].map(i=>`<tr><td>${fH(P.species[i])}</td><td>${fmtG(P.grams[i])} g</td><td><input data-k="n${i}"> mol</td><td><input data-k="q${i}" placeholder="e.g. 2/3"></td><td><input data-k="p${i}"> mol</td></tr>`).join('') +
+    `</table><p class="muted">Enter the mole ratio as a fraction (like 2/3) or a decimal.</p>` + lrRadio(P);
+  return {
+    title:'Limiting reagent', html,
+    hint:`moles = mass ÷ molar mass. The mole ratio comes from the coefficients: (coefficient of ${Pd}) ÷ (coefficient of the reactant).`,
+    rule:`moles of ${Pd} = moles of reactant × mole ratio. The limiting reagent is the reactant that produces the smaller amount of ${Pd}; it runs out first.`,
+    check(card){
+      const g = k=>card.querySelector(`[data-k=${k}]`);
+      const n = [0,1].map(i=>num(g('n'+i).value)), q = [0,1].map(i=>ratioVal(g('q'+i).value)), pr = [0,1].map(i=>num(g('p'+i).value));
+      if(n.concat(q,pr).some(isNaN)) return {incomplete:true, msg:`Fill in moles, mole ratio and moles of ${Pd} for both reactants.`};
+      const msgs = []; let spec = true, okSoFar = true;
+      [0,1].forEach(i=>{
+        const v = n[i], ok = close(v, s.n[i]); mark(g('n'+i), ok);
+        if(!ok){ okSoFar = false;
+          if(near(v, P.grams[i]*P.mm[i])) msgs.push(`${fH(P.species[i])}: you multiplied grams by molar mass. Moles = grams <b>÷</b> molar mass.`);
+          else if(near(v, P.mm[i]/P.grams[i])) msgs.push(`${fH(P.species[i])}: the division is upside down. Moles = grams ÷ molar mass.`);
+          else { msgs.push(`${fH(P.species[i])}: moles not correct.`); spec = false; }
+        }
+      });
+      if(!okSoFar) return {ok:false, specific:spec, msg:msgs.join('<br>')};
+      [0,1].forEach(i=>{
+        const want = ct/P.coef[i], v = q[i], ok = close(v, want, 0.01); mark(g('q'+i), ok);
+        if(!ok){ okSoFar = false;
+          if(ct!==P.coef[i] && near(v, P.coef[i]/ct)) msgs.push(`${fH(P.species[i])}: the mole ratio is upside down. It converts mol ${fH(P.species[i])} → mol ${Pd}, so ${Pd} goes on top: ${ct}/${P.coef[i]}.`);
+          else if(ct!==P.coef[i] && near(v, 1)) msgs.push(`${fH(P.species[i])}: the ratio isn't 1:1. Use the coefficients from the balanced equation.`);
+          else { msgs.push(`${fH(P.species[i])}: mole ratio not correct. Use (coefficient of ${Pd}) / (coefficient of ${fH(P.species[i])}).`); spec = true; }
+        }
+      });
+      if(!okSoFar) return {ok:false, specific:spec, msg:msgs.join('<br>')};
+      [0,1].forEach(i=>{
+        const v = pr[i], ok = close(v, pm[i]); mark(g('p'+i), ok);
+        if(!ok){ okSoFar = false;
+          if(ct!==P.coef[i] && near(v, s.n[i]*P.coef[i]/ct)) msgs.push(`${fH(P.species[i])}: multiply moles by the mole ratio; don't divide.`);
+          else if(ct!==P.coef[i] && near(v, s.n[i])) msgs.push(`${fH(P.species[i])}: you haven't applied the mole ratio yet.`);
+          else { msgs.push(`${fH(P.species[i])}: moles of ${Pd} not correct (moles × mole ratio).`); spec = true; }
+        }
+      });
+      if(!okSoFar) return {ok:false, specific:spec, msg:msgs.join('<br>')};
+      const c = lrChoice(card);
+      if(c===null) return {incomplete:true, msg:'Your numbers are right. Now select the limiting reagent.'};
+      if(c!==s.lr){
+        let m;
+        if(P.grams[c] < P.grams[1-c]) m = "You picked the reactant with the smaller <b>mass</b>. Mass doesn't decide which reactant runs out. Look at the moles of product each can make.";
+        else if(s.n[c] < s.n[1-c]) m = `You picked the reactant with fewer <b>moles</b>, but the mole ratios matter too. Look at the moles of ${Pd} each can make.`;
+        else m = `The limiting reagent is the one that makes the <b>smaller</b> amount of ${Pd}. It runs out first.`;
+        return {ok:false, specific:true, msg:m};
+      }
+      return {ok:true, msg:`Correct! ${fH(P.species[s.lr])} can make only ${fmt4(pm[s.lr])} mol ${Pd} (vs. ${fmt4(pm[s.ex])} mol from ${fH(P.species[s.ex])}), so it is limiting; ${fH(P.species[s.ex])} is in excess.`};
+    },
+    reveal(card){
+      const g = k=>card.querySelector(`[data-k=${k}]`);
+      [0,1].forEach(i=>{ g('n'+i).value = fmt4(s.n[i]); g('q'+i).value = `${ct}/${P.coef[i]}`; g('p'+i).value = fmt4(pm[i]); });
+      card.querySelector(`input[type=radio][value="${s.lr}"]`).checked = true;
+    },
+    answerText(){ return [0,1].map(i=>`${fH(P.species[i])}: ${fmt4(s.n[i])} mol × ${ct}/${P.coef[i]} = ${fmt4(pm[i])} mol ${Pd}`).join('; ') + `. Limiting reagent = ${fH(P.species[s.lr])}`; }
+  };
+}
+
+function lrStepTest(P){
+  const s = P.sol;
+  return {
+    title:'Limiting reagent', html:`<p>Which reactant is the limiting reagent?</p>` + lrRadio(P),
+    check(card){
+      const c = lrChoice(card);
+      if(c===null) return {incomplete:true, msg:'Select a reactant.'};
+      return c===s.lr ? {ok:true} : {ok:false};
+    },
+    reveal(card){ card.querySelector(`input[type=radio][value="${s.lr}"]`).checked = true; },
+    answerText(){ return fH(P.species[s.lr]); }
+  };
+}
+
+function excessStep(P, mode){
+  const s = P.sol, X = fH(P.species[s.ex]), L = fH(P.species[s.lr]);
+  const rows = mode==='coach'
+    ? [['mol', `Moles of ${X} consumed`, 'mol'], ['gu', `Grams of ${X} consumed`, 'g'], ['gl', `Grams of ${X} remaining`, 'g']]
+    : [['gl', `Grams of ${X} remaining after the reaction`, 'g']];
+  const html = `<p>${X} is the excess reagent (${fmtG(P.grams[s.ex])} g given). How much is left over?</p>` +
+    rows.map(r=>`<div class="row"><label>${r[1]}</label><input data-k="${r[0]}"><span class="unit">${r[2]}</span></div>`).join('');
+  const exp = {mol:s.exUsedMol, gu:s.exUsedG, gl:s.exLeftG};
+  return {
+    title:'Excess reagent remaining', html,
+    hint:`Start from moles of the limiting reagent: mol ${X} consumed = mol ${L} × (coef of ${X} ÷ coef of ${L}).`,
+    rule:'grams consumed = moles consumed × molar mass; grams remaining = grams given − grams consumed.',
+    check(card){
+      const ins = [...card.querySelectorAll('input')];
+      if(ins.some(i=>isNaN(num(i.value)))) return {incomplete:true, msg:'Enter a number in every box.'};
+      const msgs = []; let spec = true;
+      for(const inp of ins){
+        const k = inp.dataset.k, v = num(inp.value), ok = close(v, exp[k]); mark(inp, ok);
+        if(ok) continue;
+        if(mode!=='coach'){ msgs.push(''); continue; }
+        const cl = P.coef[s.lr], ce = P.coef[s.ex];
+        if(k==='mol'){
+          if(ce!==cl && near(v, s.n[s.lr])) msgs.push(`Moles consumed: use the mole ratio from the balanced equation (${ce} ${X} : ${cl} ${L}), not 1:1.`);
+          else if(ce!==cl && near(v, s.n[s.lr]*cl/ce)) msgs.push(`Moles consumed: the mole ratio is upside down. Multiply by (${ce} mol ${X} / ${cl} mol ${L}).`);
+          else if(near(v, s.n[s.ex])) msgs.push(`Moles consumed: that's all the ${X} you started with. Only part of it reacts.`);
+          else { msgs.push('Moles consumed: not correct.'); spec = false; }
+          break;  // fix moles before going on
+        }
+        if(k==='gu'){
+          if(near(v, s.exUsedMol)) msgs.push('Grams consumed: you entered moles. Multiply by the molar mass to get grams.');
+          else { msgs.push('Grams consumed: not correct.'); spec = false; }
+          break;
+        }
+        if(k==='gl'){
+          if(near(v, s.exUsedG)) msgs.push('Grams remaining: that is the amount <b>consumed</b>. Remaining = given − consumed.');
+          else if(near(Math.abs(v), Math.abs(P.grams[s.ex]-P.grams[s.lr]))) msgs.push("Grams remaining: don't subtract the masses of two different substances. Subtract the grams of excess reagent consumed from the grams given.");
+          else { msgs.push('Grams remaining: not correct.'); spec = false; }
+        }
+      }
+      if(!msgs.length) return {ok:true, msg:`Correct! ${fmt4(s.exLeftG)} g of ${X} is left over.`};
+      if(mode!=='coach') return {ok:false};
+      return {ok:false, specific:spec, msg:msgs.join('<br>')};
+    },
+    reveal(card){ card.querySelectorAll('input').forEach(inp=>inp.value = fmt4(exp[inp.dataset.k])); },
+    answerText(){ return `${fmt4(s.exUsedMol)} mol (${fmt4(s.exUsedG)} g) consumed; ${fmt4(s.exLeftG)} g remaining`; }
+  };
+}
+
+function theoStep(P, mode){
+  const s = P.sol, Pd = fH(P.species[P.t]), L = fH(P.species[s.lr]);
+  const rows = mode==='coach'
+    ? [['mol', `Moles of ${Pd} that can form`, 'mol'], ['g', `Theoretical yield of ${Pd}`, 'g']]
+    : [['g', `Theoretical yield of ${Pd}`, 'g']];
+  const html = `<p>What is the maximum mass of ${Pd} that can form?</p>` +
+    rows.map(r=>`<div class="row"><label>${r[1]}</label><input data-k="${r[0]}"><span class="unit">${r[2]}</span></div>`).join('');
+  const exp = {mol:s.prodMol, g:s.prodG};
+  return {
+    title:'Theoretical yield', html,
+    hint:`mol ${Pd} = mol ${L} × (coef of ${Pd} ÷ coef of ${L}).`,
+    rule:`Always start from the limiting reagent. grams ${Pd} = mol ${Pd} × molar mass of ${Pd}.`,
+    check(card){
+      const ins = [...card.querySelectorAll('input')];
+      if(ins.some(i=>isNaN(num(i.value)))) return {incomplete:true, msg:'Enter a number in every box.'};
+      const msgs = []; let spec = true;
+      const cl = P.coef[s.lr], ct = P.coef[P.t], ce = P.coef[s.ex];
+      const fromEx = s.n[s.ex]*ct/ce;
+      for(const inp of ins){
+        const k = inp.dataset.k, v = num(inp.value), ok = close(v, exp[k]); mark(inp, ok);
+        if(ok) continue;
+        if(mode!=='coach'){ msgs.push(''); continue; }
+        if(k==='mol'){
+          if(near(v, fromEx)) msgs.push('You calculated from the <b>excess</b> reagent. The theoretical yield comes from the limiting reagent, which runs out first.');
+          else if(ct!==cl && near(v, s.n[s.lr])) msgs.push(`Use the mole ratio (${ct} ${Pd} : ${cl} ${L}), not 1:1.`);
+          else if(ct!==cl && near(v, s.n[s.lr]*cl/ct)) msgs.push(`The mole ratio is upside down. Multiply by (${ct} mol ${Pd} / ${cl} mol ${L}).`);
+          else { msgs.push('Moles of product: not correct.'); spec = false; }
+          break;
+        }
+        if(k==='g'){
+          if(near(v, fromEx*P.mm[P.t])) msgs.push('You calculated from the <b>excess</b> reagent. Start from the limiting reagent.');
+          else if(near(v, s.prodMol)) msgs.push('That is moles. Multiply by the molar mass of the product to get grams.');
+          else if(near(v, P.grams[s.lr]*ct/cl)) msgs.push('Coefficients are <b>mole</b> ratios, not mass ratios. Convert to moles first.');
+          else { msgs.push('Theoretical yield: not correct.'); spec = false; }
+        }
+      }
+      if(!msgs.length) return {ok:true, msg:`Correct! Theoretical yield = ${fmt4(s.prodG)} g ${Pd}.`};
+      if(mode!=='coach') return {ok:false};
+      return {ok:false, specific:spec, msg:msgs.join('<br>')};
+    },
+    reveal(card){ card.querySelectorAll('input').forEach(inp=>inp.value = fmt4(exp[inp.dataset.k])); },
+    answerText(){ return `${fmt4(s.prodMol)} mol = ${fmt4(s.prodG)} g ${Pd}`; }
+  };
+}
+
+function pctStep(P, mode){
+  const s = P.sol, Pd = fH(P.species[P.t]);
+  return {
+    title:'Percent yield',
+    html:`<p>${fmtG(P.actual)} g of ${Pd} was actually isolated. What is the percent yield?</p>
+      <div class="row"><label>Percent yield</label><input data-k="p"><span class="unit">%</span></div>`,
+    hint:'Percent yield compares what was actually obtained with the theoretical maximum.',
+    rule:'% yield = (actual yield ÷ theoretical yield) × 100.',
+    check(card){
+      const inp = card.querySelector('input'), v = num(inp.value);
+      if(isNaN(v)) return {incomplete:true, msg:'Enter a number.'};
+      const ok = close(v, s.pct); mark(inp, ok);
+      if(ok) return {ok:true, msg:`Correct! Percent yield = ${s.pct.toFixed(1)} %.`};
+      if(mode!=='coach') return {ok:false};
+      if(near(v, s.prodG/P.actual*100)) return {ok:false, specific:true, msg:'The ratio is upside down (a yield above 100% is a warning sign). Use actual ÷ theoretical.'};
+      if(near(v, s.pct/100)) return {ok:false, specific:true, msg:'That is a fraction. Multiply by 100 to get a percentage.'};
+      if(near(v, P.actual/P.grams[s.lr]*100)) return {ok:false, specific:true, msg:'Compare the actual yield with the <b>theoretical yield</b>, not with the mass of the limiting reagent.'};
+      return {ok:false};
+    },
+    reveal(card){ card.querySelector('input').value = s.pct.toFixed(1); },
+    answerText(){ return `(${fmtG(P.actual)} g ÷ ${fmt4(s.prodG)} g) × 100 = ${s.pct.toFixed(1)} %`; }
+  };
+}
+
+function coachSteps(P, ctx){ return [balanceStep(P,ctx), mmStep(P), lrStepCoach(P), excessStep(P,'coach'), theoStep(P,'coach'), pctStep(P,'coach')]; }
+function testSteps(P, ctx){ return [balanceStep(P,ctx), lrStepTest(P), excessStep(P,'test'), theoStep(P,'test'), pctStep(P,'test')]; }
+
+/* =========================================================
+   RENDERING PROBLEMS
+   ========================================================= */
+const LAST = {coach:null, test:null}, CURRENT = {coach:null, test:null};
+function newProblem(mode){
+  const lvl = +document.getElementById(mode+'-level').value;
+  const pool = allProblems().filter(p=>p.lvl===lvl && balance(p.r.concat(p.p), p.r.length));
+  if(!pool.length){ document.getElementById(mode+'-statement').innerHTML = 'No problems at this level.'; return; }
+  let e = pool[Math.floor(Math.random()*pool.length)];
+  if(pool.length>1){ let tries=0; while(e===LAST[mode] && tries++<10) e = pool[Math.floor(Math.random()*pool.length)]; }
+  LAST[mode] = e;
+  const P = buildProblem(e);
+  CURRENT[mode] = P;
+  renderStatement(mode, P);
+  setupSession(mode, P);
+}
+
+function renderStatement(mode, P){
+  const F = i=>fH(P.species[i]);
+  let html = `<h2>Problem <span class="lvl-pill">Level ${P.entry.lvl} · ${LEVELS[P.entry.lvl]}</span>${P.entry.custom||P.entry.remote?'<span class="lvl-pill">Instructor problem</span>':''}</h2>
+    <p class="statement">A student combines <b>${fmtG(P.grams[0])} g</b> of ${F(0)} with <b>${fmtG(P.grams[1])} g</b> of ${F(1)}. They react according to the unbalanced equation below. After the reaction, <b>${fmtG(P.actual)} g</b> of ${F(P.t)} is isolated.</p>
+    <div class="eq">${eqHTML(P)}</div>`;
+  if(mode==='test'){
+    const idx = [0,1,P.t];
+    html += `<div class="given"><span>Molar masses:</span>` + idx.map(i=>`<span>${F(i)} <b>${P.mm[i].toFixed(3)}</b> g/mol</span>`).join('') + '</div>';
+  }
+  document.getElementById(mode+'-statement').innerHTML = html;
+  if(mode==='coach') renderSide(P);
+}
+
+function renderSide(P){
+  const els = []; P.species.forEach(s=>{ for(const e in parseFormula(s)) if(!els.includes(e)) els.push(e); });
+  const rows = list => list.map(e=>`<tr><td><b>${e}</b> ${ELNAME[e]||''}</td><td>${AM[e].toFixed(3)}</td></tr>`).join('');
+  const all = Object.keys(AM).sort((a,b)=>AM[a]-AM[b]);
+  document.getElementById('coach-side').innerHTML = `<h3 style="margin-top:0">Atomic masses (g/mol)</h3>
+    <table class="am-table">${rows(els)}</table>
+    <details><summary>All elements</summary><table class="am-table">${rows(all)}</table></details>`;
+}
+
+/* =========================================================
+   REVIEW: worked example generated by the same engine
+   ========================================================= */
+function workedExample(){
+  const entry = {lvl:1, r:['Al','Cl2'], p:['AlCl3'], t:0, grams:[10.0, 35.0], actual:38.5};
+  const P = buildProblem(entry), s = P.sol, F = i=>fH(P.species[i]);
+  const L = P.species[s.lr], c = P.coef;
+  const lines = [
+    `<b>Problem.</b> ${fmtG(P.grams[0])} g of Al reacts with ${fmtG(P.grams[1])} g of Cl<sub>2</sub>; ${fmtG(P.actual)} g of AlCl<sub>3</sub> is isolated.`,
+    `<b>1. Balance:</b> ${eqHTML(P, c)}`,
+    `<b>2. Molar masses:</b> Al = ${P.mm[0].toFixed(3)}; Cl<sub>2</sub> = 2(35.453) = ${P.mm[1].toFixed(3)}; AlCl<sub>3</sub> = 26.982 + 3(35.453) = ${P.mm[2].toFixed(3)} g/mol`,
+    `<b>3. Moles:</b> Al: ${fmtG(P.grams[0])} g ÷ ${P.mm[0].toFixed(3)} g/mol = ${fmt4(s.n[0])} mol; &nbsp; Cl<sub>2</sub>: ${fmtG(P.grams[1])} g ÷ ${P.mm[1].toFixed(3)} g/mol = ${fmt4(s.n[1])} mol`,
+    `<b>4. Moles of product from each:</b> Al: ${fmt4(s.n[0])} mol × (${c[2]}/${c[0]}) = ${fmt4(s.n[0]*c[2]/c[0])} mol AlCl<sub>3</sub>; &nbsp; Cl<sub>2</sub>: ${fmt4(s.n[1])} mol × (${c[2]}/${c[1]}) = ${fmt4(s.n[1]*c[2]/c[1])} mol AlCl<sub>3</sub> → <b>${F(s.lr)} is limiting</b> (makes less product), even though there is <i>more</i> grams of it. The smaller-mass reactant is not automatically limiting!`,
+    `<b>5. Excess remaining:</b> Al consumed = ${fmt4(s.n[s.lr])} mol Cl<sub>2</sub> × (${c[0]} mol Al / ${c[1]} mol Cl<sub>2</sub>) = ${fmt4(s.exUsedMol)} mol × ${P.mm[0].toFixed(3)} g/mol = ${fmt4(s.exUsedG)} g; remaining = ${fmtG(P.grams[0])} − ${fmt4(s.exUsedG)} = <b>${fmt4(s.exLeftG)} g Al</b>`,
+    `<b>6. Theoretical yield:</b> ${fmt4(s.n[s.lr])} mol Cl<sub>2</sub> × (${c[2]} mol AlCl<sub>3</sub> / ${c[1]} mol Cl<sub>2</sub>) = ${fmt4(s.prodMol)} mol × ${P.mm[2].toFixed(3)} g/mol = <b>${fmt4(s.prodG)} g AlCl<sub>3</sub></b>`,
+    `<b>7. Percent yield:</b> (${fmtG(P.actual)} g ÷ ${fmt4(s.prodG)} g) × 100 = <b>${s.pct.toFixed(1)} %</b>`
+  ];
+  document.getElementById('worked').innerHTML = lines.map(l=>`<div class="ln">${l}</div>`).join('');
+}
+
+/* =========================================================
+   INSTRUCTOR
+   ========================================================= */
+let PENDING = null;
+function instrCheck(){
+  const r1 = document.getElementById('in-r1').value.trim(), r2 = document.getElementById('in-r2').value.trim();
+  const ps = document.getElementById('in-p').value.split(',').map(x=>x.trim()).filter(Boolean);
+  const out = document.getElementById('in-result'), more = document.getElementById('in-more');
+  more.classList.add('hidden'); PENDING = null;
+  document.getElementById('in-save-fb').innerHTML = '';
+  try{
+    if(!r1 || !r2 || !ps.length) throw new Error('Enter two reactants and at least one product.');
+    const species = [r1, r2].concat(ps);
+    species.forEach(s=>parseFormula(s));
+    const coef = balance(species, 2);
+    if(!coef) throw new Error('This equation cannot be balanced uniquely. Check the formulas.');
+    const fake = {species, nR:2};
+    out.innerHTML = `<div class="fb"><div class="ok">Balanced: ${eqHTML(fake, coef)}<br>Molar masses: ${species.map(s=>`${fH(s)} ${molarMass(s).toFixed(3)}`).join(', ')}</div></div>`;
+    const tSel = document.getElementById('in-t');
+    tSel.innerHTML = ps.map((p,i)=>`<option value="${i}">${p}</option>`).join('');
+    PENDING = {r:[r1,r2], p:ps, coef};
+    more.classList.remove('hidden');
+  }catch(e){ out.innerHTML = `<div class="fb"><div class="bad">${e.message}</div></div>`; }
+}
+function instrSave(){
+  const fb = document.getElementById('in-save-fb');
+  if(!PENDING) return;
+  const entry = {lvl:+document.getElementById('in-lvl').value, r:PENDING.r, p:PENDING.p, t:+document.getElementById('in-t').value, custom:true};
+  const g1 = document.getElementById('in-g1').value.trim(), g2 = document.getElementById('in-g2').value.trim(), act = document.getElementById('in-act').value.trim();
+  if(g1 || g2){
+    if(isNaN(num(g1)) || isNaN(num(g2)) || num(g1)<=0 || num(g2)<=0){ fb.innerHTML = '<div class="bad">Give both reactant masses (or neither).</div>'; return; }
+    entry.grams = [num(g1), num(g2)];
+    const species = entry.r.concat(entry.p), mm = species.map(s=>molarMass(s));
+    const s = solve(PENDING.coef, mm, entry.grams, 2+entry.t);
+    if(Math.abs(s.ratio[0]-s.ratio[1]) < 0.02*Math.max(s.ratio[0],s.ratio[1])){ fb.innerHTML = '<div class="bad">These amounts are (nearly) stoichiometric, so there is no clear limiting reagent. Change one mass.</div>'; return; }
+    if(act){
+      if(isNaN(num(act)) || num(act)<=0){ fb.innerHTML = '<div class="bad">Actual yield must be a positive number.</div>'; return; }
+      if(num(act) > s.prodG){ fb.innerHTML = `<div class="bad">Actual yield exceeds the theoretical yield (${fmt4(s.prodG)} g).</div>`; return; }
+      entry.actual = num(act);
+    }
+  } else if(act){ fb.innerHTML = '<div class="bad">An actual yield needs fixed reactant masses too (or leave all three blank).</div>'; return; }
+  CUSTOM.push(entry); saveCustom(); renderCustom();
+  fb.innerHTML = '<div class="ok">Saved. It will now appear in Coaching and Testing at level '+entry.lvl+' in this browser.</div>';
+}
+function renderCustom(){
+  const box = document.getElementById('custom-list');
+  if(!CUSTOM.length){ box.innerHTML = '<p class="muted">No problems saved in this browser yet.</p>'; return; }
+  box.innerHTML = '<table class="grid custom-list"><tr><th>Lvl</th><th>Reaction</th><th>Amounts</th><th></th></tr>' +
+    CUSTOM.map((e,i)=>`<tr><td>${e.lvl}</td><td>${fH(e.r.join(' + '))} → ${fH(e.p.join(' + '))}</td><td>${e.grams?e.grams.join(' g, ')+' g':'generated'}</td><td><button class="btn secondary" data-del="${i}" style="padding:2px 9px">Delete</button></td></tr>`).join('') + '</table>';
+  box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ CUSTOM.splice(+b.dataset.del,1); saveCustom(); renderCustom(); });
+}
+function exportCustom(){
+  const all = REMOTE.concat(CUSTOM).map(e=>{ const o={lvl:e.lvl, r:e.r, p:e.p, t:e.t}; if(e.grams) o.grams=e.grams; if(e.actual) o.actual=e.actual; return o; });
+  const blob = new Blob([JSON.stringify(all, null, 1)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'problems.json'; a.click();
+}
+function importCustom(file){
+  const rd = new FileReader();
+  rd.onload = ()=>{
+    try{
+      const arr = JSON.parse(rd.result); let n = 0;
+      arr.forEach(e=>{ if(e && e.r && e.r.length===2 && e.p && balance(e.r.concat(e.p),2)){ e.custom = true; CUSTOM.push(e); n++; } });
+      saveCustom(); renderCustom(); alertBox(`Imported ${n} problem(s).`);
+    }catch(err){ alertBox('Could not read that file.'); }
+  };
+  rd.readAsText(file);
+}
+function alertBox(msg){ document.getElementById('in-save-fb').innerHTML = `<div class="info">${msg}</div>`; document.getElementById('in-more').classList.remove('hidden'); }
+
+/* =========================================================
+   INIT
+   ========================================================= */
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active', x===b));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.id==='tab-'+b.dataset.tab));
+});
+['coach-level','test-level','in-lvl'].forEach(id=>{
+  document.getElementById(id).innerHTML = Object.keys(LEVELS).map(k=>`<option value="${k}">${k} — ${LEVELS[k]}</option>`).join('');
+});
+document.getElementById('coach-new').onclick = ()=>newProblem('coach');
+document.getElementById('test-new').onclick = ()=>newProblem('test');
+document.getElementById('coach-level').onchange = ()=>newProblem('coach');
+document.getElementById('test-level').onchange = ()=>newProblem('test');
+document.getElementById('in-check').onclick = instrCheck;
+document.getElementById('in-save').onclick = instrSave;
+document.getElementById('exp').onclick = exportCustom;
+document.getElementById('imp').onchange = e=>{ if(e.target.files[0]) importCustom(e.target.files[0]); e.target.value=''; };
+
+loadCustom(); renderCustom(); workedExample();
+newProblem('coach'); newProblem('test');
+
+// Load instructor problems published with the site (works on GitHub Pages; silently skipped when opened as a local file)
+if(location.protocol!=='file:') fetch('problems.json', {cache:'no-store'}).then(r=>r.ok?r.json():[]).then(arr=>{
+  REMOTE = (arr||[]).filter(e=>e && e.r && e.r.length===2 && e.p && balance(e.r.concat(e.p),2)).map(e=>Object.assign({remote:true}, e));
+  if(REMOTE.length) document.getElementById('remote-status').textContent = `${REMOTE.length} problem(s) loaded from problems.json on the site.`;
+}).catch(()=>{});
+</script>
+</body>
+</html>
